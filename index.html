@@ -242,6 +242,25 @@
 
         .sync-status i { color: var(--success); }
 
+        .btn-sync {
+            background: var(--neon-dim);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--neon);
+            transition: all 0.3s;
+        }
+
+        .btn-sync:hover {
+            background: var(--neon);
+            color: var(--bg);
+        }
+
         .sync-debug {
             padding: 4px 8px;
             background: rgba(0,200,255,0.1);
@@ -991,10 +1010,13 @@
                     </div>
                 </div>
                 <div class="header-right">
-                    <div class="sync-status" id="syncStatus" onclick="testSync()">
+                    <div class="sync-status" id="syncStatus" onclick="forceSync()">
                         <i class="ph-fill ph-cloud-check"></i>
                         <span id="lastSync">Sincronizado</span>
                     </div>
+                    <button class="btn-sync" onclick="forceSync()" title="Forzar sincronización">
+                        <i class="ph-fill ph-arrows-clockwise"></i>
+                    </button>
                     <div class="sync-debug" id="syncDebug" style="display:none; font-size: 10px; color: var(--neon);"></div>
                     <div class="currency-selector">
                         <i class="ph-fill ph-currency-dollar"></i>
@@ -1477,9 +1499,31 @@
         }
 
         // Función para probar sync manualmente
-        async function testSync() {
-            showDebug('🧪 Probando conexión...');
-            await loadFromCloud();
+        async function forceSync() {
+            showDebug('🔄 Sincronizando manualmente...');
+            console.log('>>> forceSync llamado');
+            
+            // Asegurar que hay datos
+            if (!data.movements || data.movements.length === 0) {
+                showDebug('⚠️ No hay movimientos para sincronizar');
+                return;
+            }
+            
+            console.log('>>> Datos a sincronizar:', data);
+            
+            // Forzar guardado
+            const result = await saveToCloud();
+            console.log('>>> Resultado de forceSync:', result);
+            
+            if (result) {
+                showDebug('✅ ¡Sincronización exitosa!');
+                // Verificar que se guardó
+                setTimeout(async () => {
+                    await loadFromCloud();
+                }, 1500);
+            } else {
+                showDebug('❌ Falló la sincronización');
+            }
         }
 
         // Actualizar indicador de sincronización
