@@ -1146,8 +1146,9 @@
         // Intentar cargar desde Supabase
         async function loadFromCloud() {
             try {
-                if (typeof supabase === 'undefined') {
-                    throw new Error('Supabase no configurado');
+                if (typeof supabase === 'undefined' || !supabase) {
+                    console.log('Supabase no disponible');
+                    return false;
                 }
                 
                 const { data: result, error } = await supabase
@@ -1157,18 +1158,21 @@
                     .limit(1)
                     .single();
                 
-                if (error) throw error;
+                if (error) {
+                    console.log('Error de Supabase:', error.message);
+                    return false;
+                }
                 
                 if (result && result.data) {
                     data = result.data;
                     cloudData = result;
                     syncStatus = 'cloud';
                     updateSyncIndicator(true);
+                    console.log('Datos cargados desde la nube');
                     return true;
                 }
             } catch (e) {
-                console.log('Cloud not available, using localStorage');
-                syncStatus = 'local';
+                console.log('Cloud not available, using localStorage:', e.message);
             }
             return false;
         }
@@ -1176,7 +1180,7 @@
         // Guardar en Supabase
         async function saveToCloud() {
             try {
-                if (typeof supabase === 'undefined') {
+                if (typeof supabase === 'undefined' || !supabase) {
                     return false;
                 }
                 
@@ -1185,22 +1189,34 @@
                 
                 // Upsert - actualiza si existe, inserta si no
                 if (cloudData && cloudData.id) {
-                    await supabase
+                    const { error } = await supabase
                         .from(TABLE_NAME)
                         .update({ data: data, updated_at: new Date().toISOString() })
                         .eq('id', cloudData.id);
+                    
+                    if (error) {
+                        console.log('Error actualizando:', error.message);
+                        // Intentar crear nuevo registro
+                        const { data: newData } = await supabase
+                            .from(TABLE_NAME)
+                            .insert([{ data: data }]);
+                        if (newData) cloudData = newData[0];
+                    }
                 } else {
                     const { data: newData } = await supabase
                         .from(TABLE_NAME)
-                        .insert([{ data: data, created_at: new Date().toISOString() }]);
-                    if (newData) cloudData = newData[0];
+                        .insert([{ data: data }]);
+                    if (newData && newData[0]) {
+                        cloudData = newData[0];
+                        console.log('Nuevo registro creado en la nube');
+                    }
                 }
                 
                 syncStatus = 'cloud';
                 updateSyncIndicator(true);
                 return true;
             } catch (e) {
-                console.error('Error saving to cloud:', e);
+                console.log('Error guardando en cloud:', e.message);
                 return false;
             }
         }
@@ -1219,18 +1235,23 @@
 
         // Cargar datos - intenta cloud primero, luego localStorage
         function loadData() {
-            loadFromCloud().then(() => {
-                if (syncStatus === 'local') {
-                    const stored = localStorage.getItem(STORAGE_KEY);
-                    if (stored) {
-                        try {
-                            data = JSON.parse(stored);
-                        } catch (e) {
-                            console.error('Error loading local data:', e);
-                        }
-                    }
+            // Cargar desde localStorage inmediatamente
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try {
+                    data = JSON.parse(stored);
+                } catch (e) {
+                    console.error('Error loading local data:', e);
                 }
+            }
+            
+            // Intentar cargar desde cloud en background
+            loadFromCloud().then(() => {
                 updateLastSync();
+            }).catch(() => {
+                console.log('Using local data');
+                syncStatus = 'local';
+                updateSyncIndicator(false);
             });
         }
 
@@ -1327,14 +1348,21 @@
 
         // Auth
         function login(user) {
-            currentUser = user;
-            document.getElementById('loginView').style.display = 'none';
-            document.getElementById('appView').classList.add('active');
-            document.getElementById('currentUser').textContent = user;
-            loadData();
-            initCharts();
-            renderDashboard();
-            animateReveal();
+            try {
+                currentUser = user;
+                document.getElementById('loginView').style.display = 'none';
+                document.getElementById('appView').classList.add('active');
+                document.getElementById('currentUser').textContent = user;
+                loadData();
+                setTimeout(() => {
+                    initCharts();
+                    renderDashboard();
+                    animateReveal();
+                }, 500);
+            } catch (e) {
+                console.error('Error en login:', e);
+                alert('Error al iniciar sesión: ' + e.message);
+            }
         }
 
         function logout() {
