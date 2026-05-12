@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -821,19 +820,19 @@
             </div>
 
             <div class="tabs">
-                <div class="tab active" onclick="showTab('dashboard')">
+                <div class="tab active" onclick="showTab('dashboard', event)">
                     <i class="ph-fill ph-chart-pie-slice"></i>
                     Dashboard
                 </div>
-                <div class="tab" onclick="showTab('movements')">
+                <div class="tab" onclick="showTab('movements', event)">
                     <i class="ph-fill ph-arrows-left-right"></i>
                     Movimientos
                 </div>
-                <div class="tab" onclick="showTab('accounts')">
+                <div class="tab" onclick="showTab('accounts', event)">
                     <i class="ph-fill ph-receipt"></i>
                     Cuentas
                 </div>
-                <div class="tab" onclick="showTab('reports')">
+                <div class="tab" onclick="showTab('reports', event)">
                     <i class="ph-fill ph-chart-line-up"></i>
                     Reportes
                 </div>
@@ -850,7 +849,7 @@
                                 <p>Tus datos se almacenan en la nube. Accede desde cualquier parte del mundo.</p>
                             </div>
                         </div>
-                        <button class="btn btn-ghost" onclick="showTab('settings')">
+                        <button class="btn btn-ghost" onclick="alert('Configuración coming soon')">
                             <i class="ph-fill ph-gear"></i>
                             Configurar
                         </button>
@@ -1112,15 +1111,14 @@
     </div>
 
     <script>
-        // ==================== SUPABASE CONFIGURATION ====================
-        // JorZunexSolutions - Synchronized Cloud Database
+        // ==================== JORZUNEX SOLUTIONS - FINANCE APP ====================
         
+        // CREDENCIALES DE SUPABASE (REST API)
         const SUPABASE_URL = 'https://mycqmtsgfxaviseohvcx.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgn4ReRGqH4j9UkJKVk';
         const TABLE_NAME = 'finanzas';
         
-        // Inicializar Supabase
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let supabaseClient = null;
         
         // Fallback a localStorage si Supabase falla
         const USE_LOCALSTORAGE_FALLBACK = true;
@@ -1141,74 +1139,80 @@
             version: 2
         };
 
-        // ==================== CLOUD SYNC FUNCTIONS ====================
+        // ==================== CLOUD SYNC FUNCTIONS (USING FETCH) ====================
         
-        // Intentar cargar desde Supabase
+        // Headers para Supabase
+        const supabaseHeaders = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+        };
+
+        // Cargar desde Supabase usando REST API
         async function loadFromCloud() {
             try {
-                if (typeof supabase === 'undefined' || !supabase) {
-                    console.log('Supabase no disponible');
+                const response = await fetch(
+                    SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?select=data&order=id.desc&limit=1',
+                    { headers: supabaseHeaders }
+                );
+                
+                if (!response.ok) {
+                    console.log('Error de Supabase:', response.status);
                     return false;
                 }
                 
-                const { data: result, error } = await supabase
-                    .from(TABLE_NAME)
-                    .select('data')
-                    .order('id', { ascending: false })
-                    .limit(1)
-                    .single();
+                const result = await response.json();
                 
-                if (error) {
-                    console.log('Error de Supabase:', error.message);
-                    return false;
-                }
-                
-                if (result && result.data) {
-                    data = result.data;
-                    cloudData = result;
+                if (result && result.length > 0 && result[0].data) {
+                    data = result[0].data;
+                    cloudData = { id: result[0].id };
                     syncStatus = 'cloud';
                     updateSyncIndicator(true);
                     console.log('Datos cargados desde la nube');
                     return true;
                 }
             } catch (e) {
-                console.log('Cloud not available, using localStorage:', e.message);
+                console.log('Cloud no disponible:', e.message);
             }
             return false;
         }
 
-        // Guardar en Supabase
+        // Guardar en Supabase usando REST API
         async function saveToCloud() {
             try {
-                if (typeof supabase === 'undefined' || !supabase) {
-                    return false;
-                }
-                
                 data.lastModified = new Date().toISOString();
                 data.modifiedBy = currentUser;
                 
-                // Upsert - actualiza si existe, inserta si no
                 if (cloudData && cloudData.id) {
-                    const { error } = await supabase
-                        .from(TABLE_NAME)
-                        .update({ data: data, updated_at: new Date().toISOString() })
-                        .eq('id', cloudData.id);
-                    
-                    if (error) {
-                        console.log('Error actualizando:', error.message);
-                        // Intentar crear nuevo registro
-                        const { data: newData } = await supabase
-                            .from(TABLE_NAME)
-                            .insert([{ data: data }]);
-                        if (newData) cloudData = newData[0];
-                    }
+                    // Actualizar registro existente
+                    await fetch(
+                        SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?id=eq.' + cloudData.id,
+                        {
+                            method: 'PATCH',
+                            headers: supabaseHeaders,
+                            body: JSON.stringify({ 
+                                data: data, 
+                                updated_at: new Date().toISOString() 
+                            })
+                        }
+                    );
                 } else {
-                    const { data: newData } = await supabase
-                        .from(TABLE_NAME)
-                        .insert([{ data: data }]);
-                    if (newData && newData[0]) {
-                        cloudData = newData[0];
-                        console.log('Nuevo registro creado en la nube');
+                    // Crear nuevo registro
+                    const response = await fetch(
+                        SUPABASE_URL + '/rest/v1/' + TABLE_NAME,
+                        {
+                            method: 'POST',
+                            headers: supabaseHeaders,
+                            body: JSON.stringify({ 
+                                data: data,
+                                created_at: new Date().toISOString()
+                            })
+                        }
+                    );
+                    const result = await response.json();
+                    if (result && result[0]) {
+                        cloudData = { id: result[0].id };
                     }
                 }
                 
@@ -1225,9 +1229,9 @@
         function updateSyncIndicator(isSynced) {
             const indicator = document.getElementById('lastSync');
             if (indicator) {
-                const icon = isSynced ? 'cloud-check' : 'cloud-warning';
+                const icon = isSynced ? 'ph-cloud-check' : 'ph-cloud-warning';
                 const text = isSynced ? 'Sincronizado' : 'Solo local';
-                indicator.innerHTML = `<i class="ph-fill ph-${icon}"></i> ${text}`;
+                indicator.innerHTML = `<i class="ph-fill ${icon}"></i> ${text}`;
             }
         }
 
@@ -1264,9 +1268,7 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             
             // Intentar guardar en la nube
-            if (typeof supabase !== 'undefined') {
-                saveToCloud();
-            }
+            saveToCloud();
             
             updateLastSync();
         }
@@ -1372,7 +1374,7 @@
         }
 
         // Tab Navigation
-        function showTab(tab) {
+        function showTab(tab, e) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.content > div').forEach(d => {
                 if (d.id !== 'dashboardTab' || tab !== 'dashboard') {
@@ -1380,7 +1382,9 @@
                 }
             });
             
-            event.target.closest('.tab').classList.add('active');
+            if (e && e.target) {
+                e.target.closest('.tab').classList.add('active');
+            }
             document.getElementById(tab + 'Tab').style.display = 'block';
             
             if (tab === 'dashboard') renderDashboard();
