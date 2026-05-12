@@ -765,15 +765,163 @@
         .cloud-banner .text h4 { font-size: 14px; color: var(--text); }
         .cloud-banner .text p { font-size: 12px; color: var(--text-dim); }
 
-        /* RESPONSIVE */
+        /* RESPONSIVE MÓVILES */
         @media (max-width: 768px) {
-            .header { flex-direction: column; gap: 16px; padding: 16px 20px; }
-            .tabs { padding: 0 20px; }
-            .content { padding: 20px; }
-            .stats-grid { grid-template-columns: 1fr; }
-            .balance-card { flex-direction: column; text-align: center; gap: 20px; }
-            .action-btns { flex-wrap: wrap; }
-            .btn { flex: 1; justify-content: center; }
+            .header { 
+                flex-direction: column; 
+                gap: 12px; 
+                padding: 12px 16px; 
+            }
+            .header-left { width: 100%; justify-content: flex-start; }
+            .header-right { 
+                width: 100%; 
+                flex-wrap: wrap; 
+                justify-content: center; 
+                gap: 8px;
+            }
+            .header-logo { width: 40px; height: 40px; }
+            .header h2 { font-size: 18px; }
+            .user-info { padding: 6px 12px; font-size: 12px; }
+            .currency-selector { padding: 4px 8px; }
+            .currency-selector select { font-size: 12px; }
+            .logout-btn { padding: 8px 12px; font-size: 12px; }
+            
+            .tabs { 
+                padding: 0 12px; 
+                gap: 4px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .tab { 
+                padding: 12px 16px; 
+                font-size: 13px;
+                white-space: nowrap;
+            }
+            .tab i { font-size: 16px; }
+            
+            .content { 
+                padding: 16px; 
+            }
+            
+            .login-box { 
+                padding: 24px; 
+                margin: 16px;
+            }
+            .logo-icon { width: 70px; height: 70px; }
+            .logo h1 { font-size: 22px; }
+            .user-btn { 
+                padding: 14px; 
+                font-size: 14px;
+                flex-direction: column;
+                gap: 8px;
+            }
+            
+            .stats-grid { 
+                grid-template-columns: 1fr; 
+                gap: 12px;
+            }
+            .stat-card { 
+                padding: 16px; 
+            }
+            .stat-icon { 
+                width: 40px; 
+                height: 40px;
+            }
+            .stat-icon i { font-size: 20px; }
+            .stat-card .amount { 
+                font-size: 22px; 
+            }
+            
+            .balance-card { 
+                flex-direction: column; 
+                text-align: center; 
+                gap: 16px;
+                padding: 20px;
+            }
+            .balance-info .amount { 
+                font-size: 28px; 
+            }
+            .balance-chart { 
+                width: 150px; 
+                height: 80px; 
+            }
+            
+            .card { 
+                padding: 16px; 
+                border-radius: 12px;
+                margin-bottom: 16px;
+            }
+            .card h3 { 
+                font-size: 16px;
+                margin-bottom: 12px;
+            }
+            
+            .action-btns { 
+                flex-wrap: wrap; 
+                gap: 8px;
+            }
+            .btn { 
+                flex: 1 1 calc(50% - 4px); 
+                justify-content: center;
+                padding: 12px 16px;
+                font-size: 13px;
+            }
+            
+            .chart-row { 
+                grid-template-columns: 1fr; 
+            }
+            .chart-container { 
+                height: 200px; 
+            }
+            
+            table { 
+                font-size: 12px;
+            }
+            th, td { 
+                padding: 10px 6px;
+            }
+            
+            .history-item { 
+                padding: 12px;
+            }
+            .history-item .meta {
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            .modal-content { 
+                padding: 20px;
+                margin: 16px;
+            }
+            .form-group { margin-bottom: 14px; }
+            .form-group input, 
+            .form-group select, 
+            .form-group textarea {
+                padding: 12px;
+                font-size: 14px;
+            }
+            
+            .cloud-banner {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+        }
+
+        /* MÓVIL PEQUEÑO */
+        @media (max-width: 400px) {
+            .header-right { gap: 6px; }
+            .sync-status { font-size: 10px; }
+            .stat-card h4 { font-size: 11px; }
+            .stat-card .amount { font-size: 18px; }
+            .btn { font-size: 12px; padding: 10px 12px; }
+        }
+
+        /* TABLET */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .header { padding: 14px 24px; }
+            .content { padding: 24px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
         }
 
         /* REVEAL ANIMATION */
@@ -1200,10 +1348,13 @@
         // Cargar desde Supabase usando REST API
         async function loadFromCloud() {
             try {
+                console.log('Cargando desde Supabase...');
                 const response = await fetch(
-                    SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?select=data&order=id.desc&limit=1',
+                    SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?select=id,data&order=id.desc&limit=1',
                     { headers: supabaseHeaders }
                 );
+                
+                console.log('Response status:', response.status);
                 
                 if (!response.ok) {
                     console.log('Error de Supabase:', response.status);
@@ -1211,14 +1362,17 @@
                 }
                 
                 const result = await response.json();
+                console.log('Datos recibidos:', result);
                 
                 if (result && result.length > 0 && result[0].data) {
                     data = result[0].data;
                     cloudData = { id: result[0].id };
                     syncStatus = 'cloud';
                     updateSyncIndicator(true);
-                    console.log('Datos cargados desde la nube');
+                    console.log('✓ Datos cargados desde la nube');
                     return true;
+                } else {
+                    console.log('No hay datos en la nube, usando datos locales');
                 }
             } catch (e) {
                 console.log('Cloud no disponible:', e.message);
@@ -1232,9 +1386,11 @@
                 data.lastModified = new Date().toISOString();
                 data.modifiedBy = currentUser;
                 
+                console.log('Guardando en Supabase...');
+                
                 if (cloudData && cloudData.id) {
                     // Actualizar registro existente
-                    await fetch(
+                    const response = await fetch(
                         SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?id=eq.' + cloudData.id,
                         {
                             method: 'PATCH',
@@ -1245,6 +1401,7 @@
                             })
                         }
                     );
+                    console.log('Update response:', response.status);
                 } else {
                     // Crear nuevo registro
                     const response = await fetch(
