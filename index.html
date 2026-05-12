@@ -987,6 +987,7 @@
                                     <th>Concepto</th>
                                     <th>Presup.</th>
                                     <th>Real</th>
+                                    <th>Moneda</th>
                                     <th>Registrado</th>
                                 </tr>
                             </thead>
@@ -1123,6 +1124,13 @@
                 <div class="form-group">
                     <label>Presupuesto (Planificado)</label>
                     <input type="number" id="budget" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>Moneda</label>
+                    <select id="movementCurrency">
+                        <option value="COP">COP - Pesos Colombianos</option>
+                        <option value="USD">USD - Dólares Americanos</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label>Fecha</label>
@@ -1468,6 +1476,10 @@
             if (conceptGroup) conceptGroup.style.display = isAccount ? 'none' : 'block';
             if (budgetGroup) budgetGroup.style.display = isAccount ? 'none' : 'block';
             
+            // Set default currency from global setting
+            const currencySelect = document.getElementById('movementCurrency');
+            if (currencySelect) currencySelect.value = currentCurrency;
+            
             // Set default movement type
             if (typeSelect) {
                 if (type === 'income' || type === 'ingreso') typeSelect.value = 'ingreso';
@@ -1533,6 +1545,7 @@
                 budget: document.getElementById('budget') ? parseFloat(document.getElementById('budget').value) || 0 : 0,
                 category: document.getElementById('category').value,
                 movementType: movementType,
+                currency: document.getElementById('movementCurrency') ? document.getElementById('movementCurrency').value : 'COP',
                 date: document.getElementById('date').value,
                 createdBy: currentUser,
                 createdAt: new Date().toISOString()
@@ -1605,21 +1618,25 @@
                     </div>
                 `;
             } else {
-                container.innerHTML = recent.map(m => `
+                container.innerHTML = recent.map(m => {
+                    const movCurrency = m.currency || 'COP';
+                    const currencyLabel = movCurrency === 'USD' ? 'USD' : 'COP';
+                    return `
                     <div class="history-item">
                         <div class="title">
                             <span>${m.description}</span>
                             <span class="${m.type === 'income' ? 'amount-income' : 'amount-expense'}">
-                                ${m.type === 'income' ? '+' : '-'}${formatCurrency(m.amount)}
+                                ${m.type === 'income' ? '+' : '-'}${formatCurrency(m.amount, movCurrency)}
                             </span>
                         </div>
                         <div class="meta">
                             <span><i class="ph-fill ph-calendar"></i> ${formatDate(m.date)}</span>
-                            <span><i class="ph-fill ph-tag"></i> ${m.category}</span>
+                            <span><i class="ph-fill ph-tag"></i> ${formatCategory(m.category)}</span>
+                            <span style="font-size: 10px; padding: 1px 4px; background: var(--neon-dim); border-radius: 3px;">${currencyLabel}</span>
                             <span><i class="ph-fill ph-user"></i> ${m.createdBy}</span>
                         </div>
                     </div>
-                `).join('');
+                `}).join('');
             }
         }
 
@@ -1627,7 +1644,7 @@
         function renderMovements() {
             const tbody = document.getElementById('movementsBody');
             if (data.movements.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="ph-fill ph-receipt"></i><br>No hay movimientos<br><small>Comienza agregando ingresos y egresos</small></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i class="ph-fill ph-receipt"></i><br>No hay movimientos<br><small>Comienza agregando ingresos y egresos</small></td></tr>';
             } else {
                 tbody.innerHTML = data.movements.map(m => {
                     const typeLabel = m.movementType === 'ingreso' ? 'Ingreso' : 
@@ -1636,6 +1653,8 @@
                     const typeClass = m.movementType === 'ingreso' ? 'badge-income' : 
                                      m.movementType === 'egreso' ? 'badge-expense' : 'badge-pending';
                     const amountPrefix = (m.movementType === 'ingreso' || m.movementType === 'ahorro') ? '+' : '-';
+                    const movCurrency = m.currency || 'COP';
+                    const currencyLabel = movCurrency === 'USD' ? 'USD' : 'COP';
                     
                     return `
                     <tr>
@@ -1643,10 +1662,11 @@
                         <td><span class="badge ${typeClass}">${typeLabel}</span></td>
                         <td>${formatCategory(m.category)}</td>
                         <td>${m.concept || m.description}</td>
-                        <td style="color: var(--text-dim);">${m.budget ? formatCurrency(m.budget) : '-'}</td>
+                        <td style="color: var(--text-dim);">${m.budget ? formatCurrency(m.budget, movCurrency) : '-'}</td>
                         <td class="${m.movementType === 'ingreso' || m.movementType === 'ahorro' ? 'amount-income' : 'amount-expense'}">
-                            ${amountPrefix}${formatCurrency(m.amount)}
+                            ${amountPrefix}${formatCurrency(m.amount, movCurrency)}
                         </td>
+                        <td><span style="font-size: 10px; padding: 2px 6px; background: var(--neon-dim); border-radius: 4px;">${currencyLabel}</span></td>
                         <td><span style="font-size: 11px; color: var(--text-dim);">${m.createdBy}</span></td>
                     </tr>
                 `}).join('');
@@ -1920,14 +1940,14 @@
             }
         }
 
-        function formatCurrency(amount) {
-            const locale = currentCurrency === 'USD' ? 'en-US' : 'es-CO';
-            const curr = currentCurrency === 'USD' ? 'USD' : 'COP';
+        function formatCurrency(amount, currency) {
+            const curr = currency || currentCurrency;
+            const locale = curr === 'USD' ? 'en-US' : 'es-CO';
             return new Intl.NumberFormat(locale, { 
                 style: 'currency', 
                 currency: curr,
-                minimumFractionDigits: currentCurrency === 'USD' ? 2 : 0,
-                maximumFractionDigits: currentCurrency === 'USD' ? 2 : 0
+                minimumFractionDigits: curr === 'USD' ? 2 : 0,
+                maximumFractionDigits: curr === 'USD' ? 2 : 0
             }).format(amount);
         }
 
