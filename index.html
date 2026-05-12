@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -1111,11 +1112,28 @@
     </div>
 
     <script>
-        // CLOUD STORAGE - Using simple JSON file simulation with localStorage
-        // For real cloud sync, integrate with Firebase, Supabase, or your backend
+        // ==================== SUPABASE CONFIGURATION ====================
+        // Configura tus credenciales de Supabase aquí:
+        // 1. Crea una cuenta gratuita en https://supabase.com
+        // 2. Crea un nuevo proyecto
+        // 3. Ve a Settings > API y copia las credenciales
+        // 4. Crea una tabla llamada "finanzas" con columnas: id, data (jsonb)
+        
+        const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
+        const SUPABASE_KEY = 'YOUR_ANON_KEY';
+        const TABLE_NAME = 'finanzas';
+        
+        // Inicializar Supabase (descomenta cuando tengas tus credenciales)
+        // const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // Fallback a localStorage si Supabase no está configurado
+        const USE_LOCALSTORAGE_FALLBACK = true;
         const STORAGE_KEY = 'jorzunex_finanzas_v2';
+        
         let currentUser = null;
         let charts = {};
+        let cloudData = null;
+        let syncStatus = 'local';
 
         // Data structure
         let data = {
@@ -1126,6 +1144,125 @@
             modifiedBy: null,
             version: 2
         };
+
+        // ==================== CLOUD SYNC FUNCTIONS ====================
+        
+        // Intentar cargar desde Supabase
+        async function loadFromCloud() {
+            try {
+                if (typeof supabase === 'undefined') {
+                    throw new Error('Supabase no configurado');
+                }
+                
+                const { data: result, error } = await supabase
+                    .from(TABLE_NAME)
+                    .select('data')
+                    .order('id', { ascending: false })
+                    .limit(1)
+                    .single();
+                
+                if (error) throw error;
+                
+                if (result && result.data) {
+                    data = result.data;
+                    cloudData = result;
+                    syncStatus = 'cloud';
+                    updateSyncIndicator(true);
+                    return true;
+                }
+            } catch (e) {
+                console.log('Cloud not available, using localStorage');
+                syncStatus = 'local';
+            }
+            return false;
+        }
+
+        // Guardar en Supabase
+        async function saveToCloud() {
+            try {
+                if (typeof supabase === 'undefined') {
+                    return false;
+                }
+                
+                data.lastModified = new Date().toISOString();
+                data.modifiedBy = currentUser;
+                
+                // Upsert - actualiza si existe, inserta si no
+                if (cloudData && cloudData.id) {
+                    await supabase
+                        .from(TABLE_NAME)
+                        .update({ data: data, updated_at: new Date().toISOString() })
+                        .eq('id', cloudData.id);
+                } else {
+                    const { data: newData } = await supabase
+                        .from(TABLE_NAME)
+                        .insert([{ data: data, created_at: new Date().toISOString() }]);
+                    if (newData) cloudData = newData[0];
+                }
+                
+                syncStatus = 'cloud';
+                updateSyncIndicator(true);
+                return true;
+            } catch (e) {
+                console.error('Error saving to cloud:', e);
+                return false;
+            }
+        }
+
+        // Actualizar indicador de sincronización
+        function updateSyncIndicator(isSynced) {
+            const indicator = document.getElementById('lastSync');
+            if (indicator) {
+                const icon = isSynced ? 'cloud-check' : 'cloud-warning';
+                const text = isSynced ? 'Sincronizado' : 'Solo local';
+                indicator.innerHTML = `<i class="ph-fill ph-${icon}"></i> ${text}`;
+            }
+        }
+
+        // ==================== DATA FUNCTIONS ====================
+
+        // Cargar datos - intenta cloud primero, luego localStorage
+        function loadData() {
+            loadFromCloud().then(() => {
+                if (syncStatus === 'local') {
+                    const stored = localStorage.getItem(STORAGE_KEY);
+                    if (stored) {
+                        try {
+                            data = JSON.parse(stored);
+                        } catch (e) {
+                            console.error('Error loading local data:', e);
+                        }
+                    }
+                }
+                updateLastSync();
+            });
+        }
+
+        // Guardar datos - intenta cloud, guarda en localStorage como backup
+        function saveDataToStorage() {
+            data.lastModified = new Date().toISOString();
+            data.modifiedBy = currentUser;
+            
+            // Guardar localmente como backup
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            
+            // Intentar guardar en la nube
+            if (typeof supabase !== 'undefined') {
+                saveToCloud();
+            }
+            
+            updateLastSync();
+        }
+
+        function updateLastSync() {
+            if (data.lastModified) {
+                const date = new Date(data.lastModified);
+                const indicator = document.getElementById('lastSync');
+                if (indicator) {
+                    indicator.innerHTML = `<i class="ph-fill ph-cloud-check"></i> Sincronizado: ${date.toLocaleDateString('es-CO', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'})}`;
+                }
+            }
+        }
 
         // Initialize background animation
         function initBackground() {

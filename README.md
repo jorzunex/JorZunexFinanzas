@@ -9,107 +9,72 @@ Sistema de gestión financiera para JorZunexSolutions (Jorge Andres Carmona Rami
 - **Iconos Profesionales**: Phosphor Icons de alta calidad
 - **Animaciones**: Efectos de entrada, transiciones suaves, partículas de fondo
 - **Gráficos Interactivos**: Chart.js con gráficos de barras, dona y líneas
-- **Sincronización**: Los datos se guardan en el navegador local (localStorage)
-- **Acceso Mundial**: Al desplegar en GitHub Pages, ambos usuarios pueden acceder desde cualquier parte del mundo
-
-## 🚀 Cómo Desplegar en GitHub Pages
-
-### Paso 1: Crear Repositorio en GitHub
-
-1. Ve a [GitHub](https://github.com) e inicia sesión
-2. Haz clic en **"New repository"** (botón verde)
-3. Repository name: `JorZunexFinanzas`
-4. Visibility: **Public**
-5. No inicialices con README (dejaremos los archivos que ya tenemos)
-6. Haz clic en **"Create repository"**
-
-### Paso 2: Subir los Archivos
-
-En tu terminal, ejecuta estos comandos dentro de la carpeta `JorZunexFinanzas`:
-
-```bash
-cd ProyectosJorZunex/JorZunexFinanzas
-git init
-git add .
-git commit -m "Initial commit - JorZunex Finances App"
-```
-
-Agrega el repositorio remoto (reemplaza `tu-usuario` con tu nombre de usuario):
-
-```bash
-git remote add origin https://github.com/tu-usuario/JorZunexFinanzas.git
-```
-
-Sube los archivos:
-
-```bash
-git push -u origin main
-```
-
-### Paso 3: Configurar GitHub Pages
-
-1. Ve a tu repositorio en GitHub
-2. Haz clic en **Settings** (Configuración)
-3. En el menú izquierdo, ve a **Pages**
-4. En "Build and deployment":
-   - **Source**: Deploy from a branch
-   - **Branch**: main (o master)
-   - **Folder**: / (root)
-5. Haz clic en **Save**
-
-### Paso 4: Obtener tu URL
-
-1. Espera 1-2 minutos mientras GitHub construye el sitio
-2. Refresca la página de Settings > Pages
-3. Verás un mensaje verde con la URL:
-   ```
-   Your site is live at https://tu-usuario.github.io/JorZunexFinanzas/
-   ```
-
-### 🌐 Enlace de JorZunexSolutions
-
-**URL Final**: `https://jorzunex.github.io/JorZunexFinanzas/`
-
-(Este enlace funciona porque el usuario del repositorio es `jorzunex`)
+- **Sincronización Cloud**: Compatible con Supabase (configuración requerida)
 
 ---
 
-## 📱 Cómo Usar la App
+## 🚀 Sincronización entre dispositivos
 
-1. **Accede** desde el enlace de GitHub Pages
-2. **Selecciona** tu usuario (Jorge o Jose)
-3. **Registra** ingresos y egresos
-4. **Administra** cuentas por cobrar y pagar
-5. **Consulta** reportes y gráficos
-6. **Exporta** datos cuando necesites respaldos
+### Opción 1: Configurar Supabase (Recomendado)
 
-### Notas sobre la Sincronización
+Para sincronizar datos entre dispositivos, configura Supabase:
 
-- **Mismo navegador**: Si ambos usan el mismo navegador, los datos se comparten automáticamente via localStorage
-- **Diferentes navegadores**: Cada navegador tiene su propio localStorage. Para sincronizar, pueden exportar/importar datos periódicamente
-- **Solución Cloud**: Para sincronización real en tiempo real entre diferentes dispositivos, se necesitaría integrar Firebase, Supabase o un backend
+1. **Crea una cuenta** en [supabase.com](https://supabase.com) (gratis)
+2. **Crea un nuevo proyecto** 
+3. **Ve a Settings > API** y copia:
+   - Project URL
+   - anon / public key
+4. **Crea la tabla** en SQL Editor:
+```sql
+CREATE TABLE finanzas (
+  id SERIAL PRIMARY KEY,
+  data JSONB NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+-- Habilita Row Level Security para permitir lectura/escritura
+ALTER TABLE finanzas ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all" ON finanzas FOR ALL USING (true) WITH CHECK (true);
+```
+
+5. **Edita el archivo index.html** y reemplaza:
+```javascript
+const SUPABASE_URL = 'https://TU_PROYECTO.supabase.co';
+const SUPABASE_KEY = 'TU_KEY_AQUI';
+```
+Elimina el comentario de la línea `// const supabase = window.supabase...`
+
+### Opción 2: Usar localStorage (Sin cloud)
+
+Los datos se guardan en el navegador. Para compartir datos:
+- Usa el botón **Exportar** para descargar un JSON
+- El otro usuario puede Importar los datos (próximamente)
 
 ---
 
-## 🛠️ Tecnologías Usadas
+## 📱 Enlace de la App
 
-- **HTML5** - Estructura
-- **CSS3** - Estilos con variables CSS y animaciones
-- **JavaScript** - Lógica y localStorage
-- **Phosphor Icons** - Iconos profesionales
-- **Chart.js** - Gráficos interactivos
-- **GitHub Pages** - Hosting gratuito
+**URL**: https://jorzunex.github.io/JorZunexFinanzas/
 
 ---
 
-## 📄 Estructura de Archivos
+## 📋 Estructura de Datos
 
-```
-JorZunexFinanzas/
-├── index.html    (Aplicación completa)
-├── .nojekyll     (Para GitHub Pages)
-└── README.md     (Este archivo)
-```
+La app soporta:
+- **Tipos**: Ingreso, Egreso, Ahorro, Otro
+- **Categorías Ingresos**: Sueldo, Negocio, Deudas, Otro
+- **Categorías Egresos**: Servicios, Gastos, Gastos Operativos, Nómina, Marketing
+- **Campos**: Fecha, Categoría, Concepto, Presupuesto, Monto Real
+
+---
+
+## 🛠️ Tecnologías
+
+- HTML5, CSS3, JavaScript
+- Phosphor Icons
+- Chart.js
+- Supabase (opcional)
+- GitHub Pages
 
 ---
 
