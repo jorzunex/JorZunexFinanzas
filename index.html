@@ -1113,20 +1113,16 @@
 
     <script>
         // ==================== SUPABASE CONFIGURATION ====================
-        // Configura tus credenciales de Supabase aquí:
-        // 1. Crea una cuenta gratuita en https://supabase.com
-        // 2. Crea un nuevo proyecto
-        // 3. Ve a Settings > API y copia las credenciales
-        // 4. Crea una tabla llamada "finanzas" con columnas: id, data (jsonb)
+        // JorZunexSolutions - Synchronized Cloud Database
         
-        const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
-        const SUPABASE_KEY = 'YOUR_ANON_KEY';
+        const SUPABASE_URL = 'https://mycqmtsgfxaviseohvcx.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgn4ReRGqH4j9UkJKVk';
         const TABLE_NAME = 'finanzas';
         
-        // Inicializar Supabase (descomenta cuando tengas tus credenciales)
-        // const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Inicializar Supabase
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
-        // Fallback a localStorage si Supabase no está configurado
+        // Fallback a localStorage si Supabase falla
         const USE_LOCALSTORAGE_FALLBACK = true;
         const STORAGE_KEY = 'jorzunex_finanzas_v2';
         
