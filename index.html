@@ -780,11 +780,11 @@
                     <h1>JorZunexSolutions</h1>
                     <p>Sistema de Gestión Financiera</p>
                 </div>
-                <button class="user-btn" onclick="login('Jorge')">
+                <button class="user-btn" onclick="console.log('Jorge clicked'); login('Jorge')">
                     <i class="ph-fill ph-user"></i>
                     Jorge Andres Carmona Ramirez
                 </button>
-                <button class="user-btn" onclick="login('Jose')">
+                <button class="user-btn" onclick="console.log('Jose clicked'); login('Jose')">
                     <i class="ph-fill ph-user"></i>
                     Jose Manuel Zuluaga Figueroa
                 </button>
@@ -1350,6 +1350,7 @@
 
         // Auth
         function login(user) {
+            alert('Click detectado para: ' + user);
             console.log('Login started for:', user);
             currentUser = user;
             
