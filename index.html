@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -1338,28 +1340,37 @@
     <script>
         // ==================== JORZUNEX SOLUTIONS - FINANCE APP ====================
         
-        // CREDENCIALES DE SUPABASE (REST API) - JORZUNEX
-        const SUPABASE_URL = 'https://mycqmtsgfxaviseohvcx.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15Y3FtdHNnZnhhdmlzZW9odmN4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODYyNzI1NSwiZXhwIjoyMDk0MjAzMjU1fQ.tS5ZJkWGLcKczlqQAPY1UgrZfQMdBlGNVxnj_MhT7Uo';
-        const TABLE_NAME = 'finanzas';
+        // ==================== FIREBASE CONFIGURATION ====================
+        // REEMPLAZA ESTO CON TUS DATOS DE FIREBASE
+        // Ve a Firebase Console → Project Settings → Your Apps → Web App
         
-        // TEST DIRECTO - ejecutar al cargar
-        window.addEventListener('load', async () => {
-            console.log('=== TEST DIRECTO SUPABASE ===');
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        
+        let db = null;
+        let firebaseInitialized = false;
+        
+        // Inicializar Firebase
+        function initFirebase() {
             try {
-                const testResponse = await fetch(SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?select=*&limit=1', {
-                    method: 'GET',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': 'Bearer ' + SUPABASE_KEY
-                    }
-                });
-                console.log('TEST STATUS:', testResponse.status);
-                console.log('TEST OK:', testResponse.ok);
-            } catch(e) {
-                console.log('TEST ERROR:', e);
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                db = firebase.firestore();
+                firebaseInitialized = true;
+                console.log('✓ Firebase inicializado');
+                return true;
+            } catch (e) {
+                console.log('Firebase no disponible:', e.message);
+                return false;
             }
-        });
+        }
         
         // Debug: mostrar config
         console.log('Supabase URL:', SUPABASE_URL);
@@ -1389,120 +1400,68 @@
 
         // ==================== CLOUD SYNC FUNCTIONS (USING FETCH) ====================
         
-        // Headers para Supabase
-        const supabaseHeaders = {
-            'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-        };
-
-        // Cargar desde Supabase usando REST API
+        // ==================== FIREBASE SYNC FUNCTIONS ====================
+        
+        // Cargar desde Firebase
         async function loadFromCloud() {
-            showDebug('🔄 Conectando a la nube...');
-            try {
-                const response = await fetch(
-                    SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?select=id,data&order=id.desc&limit=1',
-                    { headers: supabaseHeaders }
-                );
-                
-                showDebug('📡 Estado: ' + response.status);
-                console.log('Load response status:', response.status);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    showDebug('❌ Error ' + response.status + ': ' + errorText.substring(0, 100));
-                    console.log('Error de Supabase:', response.status, errorText);
+            showDebug('🔄 Conectando a Firebase...');
+            
+            if (!firebaseInitialized) {
+                const initialized = initFirebase();
+                if (!initialized) {
+                    showDebug('⚠️ Firebase no configurado');
                     return false;
                 }
+            }
+            
+            try {
+                const docRef = db.collection('finanzas').doc('data');
+                const doc = await docRef.get();
                 
-                const result = await response.json();
-                console.log('Load result:', result);
-                
-                if (result && result.length > 0) {
-                    console.log('Data found:', result[0].data);
-                    if (result[0].data) {
-                        data = result[0].data;
-                        cloudData = { id: result[0].id };
-                        syncStatus = 'cloud';
-                        updateSyncIndicator(true);
-                        showDebug('✅ Datos sincronizados!');
-                        console.log('✓ Datos cargados desde la nube, ID:', result[0].id);
-                        return true;
-                    }
-                } 
-                
-                showDebug('📭 Sin datos en la nube - creando primer registro...');
-                console.log('No hay datos en la nube, usando datos locales');
+                if (doc.exists && doc.data()) {
+                    data = doc.data();
+                    syncStatus = 'cloud';
+                    updateSyncIndicator(true);
+                    showDebug('✅ Datos cargados desde Firebase!');
+                    console.log('✓ Datos sincronizados desde Firebase');
+                    return true;
+                } else {
+                    showDebug('📭 Sin datos en Firebase');
+                    console.log('No hay datos en la nube');
+                }
             } catch (e) {
-                showDebug('❌ Error: ' + e.message);
-                console.log('Cloud no disponible:', e.message);
+                showDebug('❌ Error Firebase: ' + e.message);
+                console.log('Error cargando:', e);
             }
             return false;
         }
 
-        // Guardar en Supabase usando REST API
+        // Guardar en Firebase
         async function saveToCloud() {
-            showDebug('💾 Guardando en la nube...');
+            showDebug('💾 Guardando en Firebase...');
+            
+            if (!firebaseInitialized) {
+                const initialized = initFirebase();
+                if (!initialized) {
+                    showDebug('⚠️ Firebase no configurado');
+                    return false;
+                }
+            }
+            
             try {
                 data.lastModified = new Date().toISOString();
                 data.modifiedBy = currentUser;
                 
-                let response;
-                if (cloudData && cloudData.id) {
-                    // Actualizar registro existente
-                    response = await fetch(
-                        SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?id=eq.' + cloudData.id,
-                        {
-                            method: 'PATCH',
-                            headers: supabaseHeaders,
-                            body: JSON.stringify({ 
-                                data: data, 
-                                updated_at: new Date().toISOString() 
-                            })
-                        }
-                    );
-                    showDebug('📝 Actualizado: ' + response.status);
-                } else {
-                    // Crear nuevo registro
-                    const postData = { 
-                        data: data,
-                        created_at: new Date().toISOString()
-                    };
-                    console.log('POST data:', JSON.stringify(postData));
-                    
-                    response = await fetch(
-                        SUPABASE_URL + '/rest/v1/' + TABLE_NAME,
-                        {
-                            method: 'POST',
-                            headers: supabaseHeaders,
-                            body: JSON.stringify(postData)
-                        }
-                    );
-                    console.log('POST response status:', response.status);
-                    
-                    if (response.ok) {
-                        const resJson = await response.json();
-                        console.log('POST response json:', resJson);
-                        if (resJson && resJson[0] && resJson[0].id) {
-                            cloudData = { id: resJson[0].id };
-                            showDebug('🆕 Nuevo registro: ID ' + resJson[0].id);
-                        } else {
-                            showDebug('✅ Registro creado (sin ID returned)');
-                        }
-                    } else {
-                        const errorText = await response.text();
-                        showDebug('❌ Error POST: ' + response.status + ' - ' + errorText);
-                    }
-                }
+                await db.collection('finanzas').doc('data').set(data);
                 
                 syncStatus = 'cloud';
                 updateSyncIndicator(true);
-                showDebug('✅ Guardado en la nube!');
+                showDebug('✅ Guardado en Firebase!');
+                console.log('✓ Datos guardados en Firebase');
                 return true;
             } catch (e) {
-                showDebug('❌ Error al guardar: ' + e.message);
-                console.log('Error guardando en cloud:', e.message);
+                showDebug('❌ Error: ' + e.message);
+                console.log('Error guardando:', e);
                 return false;
             }
         }
@@ -1516,8 +1475,13 @@
             }
         }
 
-        // Función para sincronización manual
+        // Función para sincronización manual - mostrar opciones
         function showSyncOptions() {
+            if (!firebaseInitialized || !db) {
+                alert('⚠️ Firebase no está configurado\n\nPara activar la sincronización:\n1. Crea un proyecto en firebase.google.com\n2. Agrega una Web App\n3. Copia la configuración aquí');
+                return;
+            }
+            
             const syncData = JSON.stringify(data);
             const blob = new Blob([syncData], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
@@ -1529,10 +1493,8 @@
             
             showDebug('📥 Descargando backup...');
             
-            // También copiar al portapapeles
             navigator.clipboard.writeText(syncData).then(() => {
                 showDebug('📋 Copiado al portapapeles!');
-                alert('¡Datos copiados al portapapeles!\n\nPara sincronizar en otro dispositivo:\n1. Abre la app\n2. Click en el botón de sync\n3. Elige "Importar datos"');
             });
         }
 
@@ -1560,6 +1522,21 @@
                 reader.readAsText(file);
             };
             input.click();
+        }
+
+        // Mostrar mensaje de configuración
+        function showFirebaseConfig() {
+            const config = prompt('Peg aquí tu configuración de Firebase (el objeto firebaseConfig):');
+            if (config) {
+                try {
+                    const parsed = JSON.parse(config);
+                    Object.assign(firebaseConfig, parsed);
+                    initFirebase();
+                    alert('✓ Firebase configurado! Ahora Prueba la sincronización.');
+                } catch(e) {
+                    alert('Error: Configuración inválida');
+                }
+            }
         }
 
         // Actualizar indicador de sincronización
