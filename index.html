@@ -1367,6 +1367,7 @@
                 );
                 
                 showDebug('📡 Estado: ' + response.status);
+                console.log('Load response status:', response.status);
                 
                 if (!response.ok) {
                     const errorText = await response.text();
@@ -1376,19 +1377,23 @@
                 }
                 
                 const result = await response.json();
+                console.log('Load result:', result);
                 
-                if (result && result.length > 0 && result[0].data) {
-                    data = result[0].data;
-                    cloudData = { id: result[0].id };
-                    syncStatus = 'cloud';
-                    updateSyncIndicator(true);
-                    showDebug('✅ Datos sincronizados!');
-                    console.log('✓ Datos cargados desde la nube');
-                    return true;
-                } else {
-                    showDebug('📭 Sin datos en la nube');
-                    console.log('No hay datos en la nube, usando datos locales');
-                }
+                if (result && result.length > 0) {
+                    console.log('Data found:', result[0].data);
+                    if (result[0].data) {
+                        data = result[0].data;
+                        cloudData = { id: result[0].id };
+                        syncStatus = 'cloud';
+                        updateSyncIndicator(true);
+                        showDebug('✅ Datos sincronizados!');
+                        console.log('✓ Datos cargados desde la nube, ID:', result[0].id);
+                        return true;
+                    }
+                } 
+                
+                showDebug('📭 Sin datos en la nube - creando primer registro...');
+                console.log('No hay datos en la nube, usando datos locales');
             } catch (e) {
                 showDebug('❌ Error: ' + e.message);
                 console.log('Cloud no disponible:', e.message);
@@ -1403,10 +1408,10 @@
                 data.lastModified = new Date().toISOString();
                 data.modifiedBy = currentUser;
                 
-                let result;
+                let response;
                 if (cloudData && cloudData.id) {
                     // Actualizar registro existente
-                    const response = await fetch(
+                    response = await fetch(
                         SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?id=eq.' + cloudData.id,
                         {
                             method: 'PATCH',
@@ -1420,27 +1425,40 @@
                     showDebug('📝 Actualizado: ' + response.status);
                 } else {
                     // Crear nuevo registro
-                    const response = await fetch(
+                    const postData = { 
+                        data: data,
+                        created_at: new Date().toISOString()
+                    };
+                    console.log('POST data:', JSON.stringify(postData));
+                    
+                    response = await fetch(
                         SUPABASE_URL + '/rest/v1/' + TABLE_NAME,
                         {
                             method: 'POST',
                             headers: supabaseHeaders,
-                            body: JSON.stringify({ 
-                                data: data,
-                                created_at: new Date().toISOString()
-                            })
+                            body: JSON.stringify(postData)
                         }
                     );
-                    const resJson = await response.json();
-                    if (resJson && resJson[0]) {
-                        cloudData = { id: resJson[0].id };
-                        showDebug('🆕 Nuevo registro creado');
+                    console.log('POST response status:', response.status);
+                    
+                    if (response.ok) {
+                        const resJson = await response.json();
+                        console.log('POST response json:', resJson);
+                        if (resJson && resJson[0] && resJson[0].id) {
+                            cloudData = { id: resJson[0].id };
+                            showDebug('🆕 Nuevo registro: ID ' + resJson[0].id);
+                        } else {
+                            showDebug('✅ Registro creado (sin ID returned)');
+                        }
+                    } else {
+                        const errorText = await response.text();
+                        showDebug('❌ Error POST: ' + response.status + ' - ' + errorText);
                     }
                 }
                 
                 syncStatus = 'cloud';
                 updateSyncIndicator(true);
-                showDebug('✅ Guardado en la nube');
+                showDebug('✅ Guardado en la nube!');
                 return true;
             } catch (e) {
                 showDebug('❌ Error al guardar: ' + e.message);
