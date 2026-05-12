@@ -1327,18 +1327,10 @@
                 createdAt: new Date().toISOString()
             };
 
-            if (type === 'income') {
+            if (type === 'income' || type === 'ingreso') {
                 item.type = 'income';
                 data.movements.unshift(item);
-            } else if (type === 'expense') {
-                item.type = 'expense';
-                data.movements.unshift(item);
-            } else if (type === 'credit') {
-
-            if (type === 'income') {
-                item.type = 'income';
-                data.movements.unshift(item);
-            } else if (type === 'expense') {
+            } else if (type === 'expense' || type === 'egreso') {
                 item.type = 'expense';
                 data.movements.unshift(item);
             } else if (type === 'credit') {
