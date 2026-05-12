@@ -1350,21 +1350,26 @@
 
         // Auth
         function login(user) {
-            try {
-                currentUser = user;
-                document.getElementById('loginView').style.display = 'none';
-                document.getElementById('appView').classList.add('active');
-                document.getElementById('currentUser').textContent = user;
-                loadData();
-                setTimeout(() => {
-                    initCharts();
-                    renderDashboard();
-                    animateReveal();
-                }, 500);
-            } catch (e) {
-                console.error('Error en login:', e);
-                alert('Error al iniciar sesión: ' + e.message);
-            }
+            console.log('Login started for:', user);
+            currentUser = user;
+            
+            var loginView = document.getElementById('loginView');
+            var appView = document.getElementById('appView');
+            var userSpan = document.getElementById('currentUser');
+            
+            if (loginView) loginView.style.display = 'none';
+            if (appView) appView.classList.add('active');
+            if (userSpan) userSpan.textContent = user;
+            
+            loadData();
+            
+            setTimeout(function() {
+                initCharts();
+                renderDashboard();
+                animateReveal();
+            }, 500);
+            
+            console.log('Login completed');
         }
 
         function logout() {
