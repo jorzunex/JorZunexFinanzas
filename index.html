@@ -242,6 +242,13 @@
 
         .sync-status i { color: var(--success); }
 
+        .sync-debug {
+            padding: 4px 8px;
+            background: rgba(0,200,255,0.1);
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+
         .currency-selector {
             display: flex;
             align-items: center;
@@ -984,10 +991,11 @@
                     </div>
                 </div>
                 <div class="header-right">
-                    <div class="sync-status">
+                    <div class="sync-status" id="syncStatus" onclick="testSync()">
                         <i class="ph-fill ph-cloud-check"></i>
                         <span id="lastSync">Sincronizado</span>
                     </div>
+                    <div class="sync-debug" id="syncDebug" style="display:none; font-size: 10px; color: var(--neon);"></div>
                     <div class="currency-selector">
                         <i class="ph-fill ph-currency-dollar"></i>
                         <select id="currencySelect" onchange="changeCurrency(this.value)">
@@ -1347,34 +1355,38 @@
 
         // Cargar desde Supabase usando REST API
         async function loadFromCloud() {
+            showDebug('🔄 Conectando a la nube...');
             try {
-                console.log('Cargando desde Supabase...');
                 const response = await fetch(
                     SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?select=id,data&order=id.desc&limit=1',
                     { headers: supabaseHeaders }
                 );
                 
-                console.log('Response status:', response.status);
+                showDebug('📡 Estado: ' + response.status);
                 
                 if (!response.ok) {
-                    console.log('Error de Supabase:', response.status);
+                    const errorText = await response.text();
+                    showDebug('❌ Error ' + response.status + ': ' + errorText.substring(0, 100));
+                    console.log('Error de Supabase:', response.status, errorText);
                     return false;
                 }
                 
                 const result = await response.json();
-                console.log('Datos recibidos:', result);
                 
                 if (result && result.length > 0 && result[0].data) {
                     data = result[0].data;
                     cloudData = { id: result[0].id };
                     syncStatus = 'cloud';
                     updateSyncIndicator(true);
+                    showDebug('✅ Datos sincronizados!');
                     console.log('✓ Datos cargados desde la nube');
                     return true;
                 } else {
+                    showDebug('📭 Sin datos en la nube');
                     console.log('No hay datos en la nube, usando datos locales');
                 }
             } catch (e) {
+                showDebug('❌ Error: ' + e.message);
                 console.log('Cloud no disponible:', e.message);
             }
             return false;
@@ -1382,12 +1394,12 @@
 
         // Guardar en Supabase usando REST API
         async function saveToCloud() {
+            showDebug('💾 Guardando en la nube...');
             try {
                 data.lastModified = new Date().toISOString();
                 data.modifiedBy = currentUser;
                 
-                console.log('Guardando en Supabase...');
-                
+                let result;
                 if (cloudData && cloudData.id) {
                     // Actualizar registro existente
                     const response = await fetch(
@@ -1401,7 +1413,7 @@
                             })
                         }
                     );
-                    console.log('Update response:', response.status);
+                    showDebug('📝 Actualizado: ' + response.status);
                 } else {
                     // Crear nuevo registro
                     const response = await fetch(
@@ -1415,19 +1427,37 @@
                             })
                         }
                     );
-                    const result = await response.json();
-                    if (result && result[0]) {
-                        cloudData = { id: result[0].id };
+                    const resJson = await response.json();
+                    if (resJson && resJson[0]) {
+                        cloudData = { id: resJson[0].id };
+                        showDebug('🆕 Nuevo registro creado');
                     }
                 }
                 
                 syncStatus = 'cloud';
                 updateSyncIndicator(true);
+                showDebug('✅ Guardado en la nube');
                 return true;
             } catch (e) {
+                showDebug('❌ Error al guardar: ' + e.message);
                 console.log('Error guardando en cloud:', e.message);
                 return false;
             }
+        }
+
+        // Mostrar mensaje de debug
+        function showDebug(msg) {
+            const debugEl = document.getElementById('syncDebug');
+            if (debugEl) {
+                debugEl.style.display = 'block';
+                debugEl.textContent = msg;
+            }
+        }
+
+        // Función para probar sync manualmente
+        async function testSync() {
+            showDebug('🧪 Probando conexión...');
+            await loadFromCloud();
         }
 
         // Actualizar indicador de sincronización
