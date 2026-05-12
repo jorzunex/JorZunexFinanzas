@@ -1014,7 +1014,7 @@
                         <i class="ph-fill ph-cloud-check"></i>
                         <span id="lastSync">Sincronizado</span>
                     </div>
-                    <button class="btn-sync" onclick="forceSync()" title="Forzar sincronización">
+                    <button class="btn-sync" onclick="showSyncOptions()" title="Sincronización">
                         <i class="ph-fill ph-arrows-clockwise"></i>
                     </button>
                     <div class="sync-debug" id="syncDebug" style="display:none; font-size: 10px; color: var(--neon);"></div>
@@ -1343,6 +1343,24 @@
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15Y3FtdHNnZnhhdmlzZW9odmN4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODYyNzI1NSwiZXhwIjoyMDk0MjAzMjU1fQ.tS5ZJkWGLcKczlqQAPY1UgrZfQMdBlGNVxnj_MhT7Uo';
         const TABLE_NAME = 'finanzas';
         
+        // TEST DIRECTO - ejecutar al cargar
+        window.addEventListener('load', async () => {
+            console.log('=== TEST DIRECTO SUPABASE ===');
+            try {
+                const testResponse = await fetch(SUPABASE_URL + '/rest/v1/' + TABLE_NAME + '?select=*&limit=1', {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': 'Bearer ' + SUPABASE_KEY
+                    }
+                });
+                console.log('TEST STATUS:', testResponse.status);
+                console.log('TEST OK:', testResponse.ok);
+            } catch(e) {
+                console.log('TEST ERROR:', e);
+            }
+        });
+        
         // Debug: mostrar config
         console.log('Supabase URL:', SUPABASE_URL);
         console.log('Supabase Key (primeros 50 chars):', SUPABASE_KEY.substring(0, 50) + '...');
@@ -1498,32 +1516,50 @@
             }
         }
 
-        // Función para probar sync manualmente
-        async function forceSync() {
-            showDebug('🔄 Sincronizando manualmente...');
-            console.log('>>> forceSync llamado');
+        // Función para sincronización manual
+        function showSyncOptions() {
+            const syncData = JSON.stringify(data);
+            const blob = new Blob([syncData], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
             
-            // Asegurar que hay datos
-            if (!data.movements || data.movements.length === 0) {
-                showDebug('⚠️ No hay movimientos para sincronizar');
-                return;
-            }
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'jorzunex_backup_' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
             
-            console.log('>>> Datos a sincronizar:', data);
+            showDebug('📥 Descargando backup...');
             
-            // Forzar guardado
-            const result = await saveToCloud();
-            console.log('>>> Resultado de forceSync:', result);
-            
-            if (result) {
-                showDebug('✅ ¡Sincronización exitosa!');
-                // Verificar que se guardó
-                setTimeout(async () => {
-                    await loadFromCloud();
-                }, 1500);
-            } else {
-                showDebug('❌ Falló la sincronización');
-            }
+            // También copiar al portapapeles
+            navigator.clipboard.writeText(syncData).then(() => {
+                showDebug('📋 Copiado al portapapeles!');
+                alert('¡Datos copiados al portapapeles!\n\nPara sincronizar en otro dispositivo:\n1. Abre la app\n2. Click en el botón de sync\n3. Elige "Importar datos"');
+            });
+        }
+
+        // Función para importar datos
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const imported = JSON.parse(event.target.result);
+                        data = imported;
+                        saveDataToStorage();
+                        renderDashboard();
+                        showDebug('✅ Datos importados!');
+                        alert('¡Datos importados correctamente!');
+                    } catch (err) {
+                        showDebug('❌ Error al importar');
+                        alert('Error: formato de archivo inválido');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         }
 
         // Actualizar indicador de sincronización
