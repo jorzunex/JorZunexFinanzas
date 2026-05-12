@@ -1525,7 +1525,21 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             
             // Intentar guardar en la nube
-            saveToCloud();
+            console.log('>>> LLAMANDO A saveToCloud()');
+            showDebug('📤 Preparando para guardar...');
+            
+            // Llamar y esperar el resultado
+            saveToCloud().then(result => {
+                console.log('>>> saveToCloud resultado:', result);
+                if (result) {
+                    showDebug('✅ ¡Guardado en la nube!');
+                    // Recargar datos para confirmar
+                    setTimeout(() => loadFromCloud(), 1000);
+                }
+            }).catch(err => {
+                console.error('>>> saveToCloud error:', err);
+                showDebug('❌ Error: ' + err.message);
+            });
             
             updateLastSync();
         }
